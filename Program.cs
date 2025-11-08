@@ -26,10 +26,11 @@ class Program
         string customerName = "";
         string customerPlanet = "";
         int totalCost = 0;
+        double discount = 0;
         int deliveryFee = 0;
-        bool wantsToAddMore = true;
+        Dictionary<string, int> orderList = new Dictionary<string, int>();
 
-        Console.WriteLine("Welcome to the Galactic Pizze Delivery Service!");
+        Console.WriteLine("Welcome to the Galactic Pizza Delivery Service!");
         Console.WriteLine("Please enter your name:");
 
         while (string.IsNullOrWhiteSpace(customerName))
@@ -44,10 +45,31 @@ class Program
         Console.WriteLine("Please enter your location:");
         customerPlanet = GetCustomerLocation();
 
-        DisplayMenu();
-        Dictionary<string, int> orderList = GetCustomerOrder();
-        deliveryFee = GetDeliveryFee(customerPlanet);
-        PrintReceipt(customerName, customerPlanet, totalCost, deliveryFee);
+        do
+        {
+            DisplayMenu();
+            string orderItem = GetCustomerOrder();
+
+            Console.WriteLine($"How many {orderItem} pizzas would you like to order? (1-10)");
+            int itemQuantity = GetPizzaQuantity();
+            if (orderList.ContainsKey(orderItem))
+            {
+                orderList[orderItem] += itemQuantity;
+            }
+            else
+            {
+                orderList.Add(orderItem, itemQuantity);
+            }
+
+            Console.WriteLine("Current Order:".PadLeft(25, '-').PadRight(40, '-'));
+            DisplayCurrentOrder(orderList);
+            Console.WriteLine("".PadLeft(40, '-'));
+        } while (WantsToAddToOrder());
+
+        totalCost = GetOrderSubtotal(orderList);
+        discount = GetOrderDiscount(orderList);
+        deliveryFee = deliveryFees[customerPlanet];
+        PrintReceipt(customerName, customerPlanet, totalCost, discount, deliveryFee, orderList);
 
     }
 
@@ -79,85 +101,124 @@ class Program
         Console.WriteLine("".PadLeft(40, '-'));
         Console.WriteLine("Please select the number of pizza from the menu:");
     }
-    public static Dictionary<string, int> GetCustomerOrder()
+    public static string GetCustomerOrder()
     {
-        string orderItem = "";
+        int itemNumber = 0;
         string[] validOrders = { "1", "2", "3", "4" };
-        Dictionary<string, int> orderList = new Dictionary<string, int>();
-        string addMoreResponse = "";
         bool isValidOrder = false;
-        bool wantsToAddMore = true;
 
-        DisplayMenu();
         do
         {
-            do
+            string currentOrderItem = Console.ReadLine();
+
+            if (int.TryParse(currentOrderItem, out itemNumber) && validOrders.Contains(currentOrderItem))
             {
-                orderItem = Console.ReadLine();
-
-                if (!validOrders.Contains(orderItem))
-                {
-                    Console.WriteLine("Invalid input. Please select a menu item (1, 2, 3, or 4).");
-                }
-                else
-                {
-                    isValidOrder = true;
-                }
-            } while (!isValidOrder);
-
-            orderList.Add(menu.ElementAt(int.Parse(orderItem) - 1).Key, menu.ElementAt(int.Parse(orderItem) - 1).Value);
-
-            Console.WriteLine("Current Order:".PadLeft(30, '-').PadRight(40, '-'));
-            foreach (KeyValuePair<string, int> item in orderList)
-            {
-                Console.WriteLine($"{item.Key.PadRight(25)} @ {item.Value}credits");
+                itemNumber = int.Parse(currentOrderItem);
+                isValidOrder = true;
             }
-
-            Console.WriteLine("Would you like to add another pizza to your order? (y/n)");
-            while (addMoreResponse != "yes" && addMoreResponse != "no")
+            else
             {
-                addMoreResponse = Console.ReadLine().ToLower();
-                Console.WriteLine($"you selected {addMoreResponse}");
+                Console.WriteLine("Invalid input. Please select a menu item (1, 2, 3, or 4).");
             }
-            if (addMoreResponse == "no")
-            {
-                wantsToAddMore = false;
-            }
-        } while (wantsToAddMore);
-
-        return orderList;
+        } while (!isValidOrder);
+        return menu.Keys.ElementAt(itemNumber - 1);
     }
 
-    public static int GetDeliveryFee(string location)
+    public static int GetPizzaQuantity()
     {
-        int deliveryFee = 0;
+        string input = "";
+        int itemAmount = 0;
+        bool isValidInput = false;
 
-        switch (location)
+        do
         {
-            case "earth":
-                deliveryFee += 5;
-                break;
-            case "mars":
-                deliveryFee += 10;
-                break;
-            case "jupiter station":
-                deliveryFee += 15;
-                break;
-            case "black hole bbq":
-                deliveryFee += 8;
-                break;
-            default:
-                break;
-        }
-        return deliveryFee;
+            input = Console.ReadLine();
+
+            if (!int.TryParse(input, out itemAmount) || !(itemAmount > 0) || !(itemAmount <= 10))
+            {
+                Console.WriteLine("Invalid input. Please enter a number between 1 and 10.");
+            }
+            else
+            {
+                itemAmount = int.Parse(input);
+                isValidInput = true;
+            }
+        } while (!isValidInput);
+        return itemAmount;
     }
-    public static void PrintReceipt(string customerName, string customerPlanet, int totalCost, int deliveryFee)
+
+    public static void DisplayCurrentOrder(Dictionary<string, int> orderList)
     {
+        foreach (KeyValuePair<string, int> item in orderList)
+        {
+            Console.WriteLine($"{item.Value} x {item.Key} @ {menu[item.Key]} = {item.Value * menu[item.Key]} credits");
+        }
+    }
+
+    public static bool WantsToAddToOrder()
+    {
+        string response;
+        Console.WriteLine("Would you like to add another pizza to your order? (yes/no)");
+        do
+        {
+            response = Console.ReadLine().ToLower();
+            if (response == "no")
+            {
+                return false;
+            }
+            else if (response == "yes")
+            {
+                return true;
+            }
+            Console.WriteLine("Invalid input. Please enter 'yes' or 'no'.");
+        } while (response != "yes" || response != "no");
+        return false;
+    }
+
+    public static int GetOrderSubtotal(Dictionary<string, int> orderList)
+    {
+        int orderSubtotal = 0;
+        foreach (KeyValuePair<string, int> item in orderList)
+        {
+            orderSubtotal += menu[item.Key] * item.Value;
+        }
+
+        return orderSubtotal;
+    }
+
+    public static double GetOrderDiscount(Dictionary<string, int> orderList)
+    {
+        double discount = 0;
+        int pizzaCount = 0;
+
+        foreach (KeyValuePair<string, int> item in orderList)
+        {
+            pizzaCount += item.Value;
+        }
+
+        if (pizzaCount >= 3)
+        {
+            discount = 0.1;
+        }
+
+        return discount;
+    }
+
+    public static void PrintReceipt(string customerName, string customerPlanet, int totalCost, double discount, int deliveryFee, Dictionary<string, int> orderList)
+    {
+        Random random = new Random();
+        int deliveryTime = random.Next(20, 61);
+
+        Console.WriteLine("".PadLeft(40, '-'));
         Console.WriteLine($"Order for {customerName} to {customerPlanet}");
         Console.WriteLine("".PadLeft(40, '-'));
-        Console.WriteLine($"Subtotal: {totalCost} credits.");
-        Console.WriteLine($"Delivery fee: {deliveryFee} credits");
-        Console.WriteLine($"Total Due: {totalCost + deliveryFee} credits.");
+        DisplayCurrentOrder(orderList);
+        Console.WriteLine($"Subtotal: {totalCost} credits");
+        Console.WriteLine($"Discount ({discount * 100}%): {-Math.Round(totalCost * discount, 2)} credits");
+        Console.WriteLine($"Delivery Fee: {deliveryFee} credits");
+        Console.WriteLine($"Total Due: {(totalCost - (totalCost * discount)) + deliveryFee} credits");
+        Console.WriteLine("".PadLeft(40, '-'));
+        Console.WriteLine("Thank you for your order! Your pizza is on the way!");
+        Console.Write($"Estimeted delivery time: {deliveryTime} minutes");
     }
-
 }
